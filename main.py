@@ -530,6 +530,18 @@ if archivo_antes and archivo_ahora:
 
 
 else:
-    st.info("Bienvenido, para comenzar, carga los archivos de corte (Detalle de Q's) 'Antes' y 'Ahora' en el panel lateral. Una vez cargados, selecciona el Eje y la Dependencia o Entidad. Por último, seleccióna la Clave Q y podrás explorar los datos y compararlos entre las dos fechas de corte.")
+    st.markdown("""
+    ## 👋 Bienvenido a la app de Revisión de Programación SED
 
+    Para comenzar, sigue estos pasos desde el panel lateral:
+
+    1. 📂 **Carga los archivos** correspondientes a los cortes **Antes** y **Ahora**.
+    2. 🧭 **Selecciona un Eje**.
+    3. 🏛️ **Selecciona la Dependencia o Entidad**.
+    4. 🔑 **Elige la Clave Q** del proyecto que deseas revisar.
+
+    Una vez seleccionada una Clave Q, se mostrarán las distintas secciones comparativas para facilitar el análisis de la información entre fechas de corte.
+
+    > Si no ves nada aún, asegúrate de haber subido ambos archivos y de haber seleccionado una Clave Q válida.
+    """)
 
