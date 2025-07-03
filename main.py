@@ -37,9 +37,12 @@ def agregar_totales(df):
 # ========== INTERFAZ LATERAL ==========
 
 with st.sidebar:
-    st.header("Carga de archivos")
-    archivo_antes = st.file_uploader("Archivo - Corte Antes", type=["xlsx"], key="archivo_antes")
-    archivo_ahora = st.file_uploader("Archivo - Corte Ahora", type=["xlsx"], key="archivo_ahora")
+    st.title("⚙️ Configuración")
+
+    # --- Zona colapsable para carga de archivos
+    with st.expander("📂 Cargar archivos de Excel", expanded=True):
+        archivo_antes = st.file_uploader("Archivo - Corte Antes", type=["xlsx"], key="archivo_antes")
+        archivo_ahora = st.file_uploader("Archivo - Corte Ahora", type=["xlsx"], key="archivo_ahora")
 
 # ========== CARGA Y FILTRO INICIAL ==========
 
@@ -55,26 +58,34 @@ if archivo_antes and archivo_ahora:
         datos_ahora = cargar_hoja(archivo_ahora, "Datos Generales", columnas_datos)
         datos_antes = cargar_hoja(archivo_antes, "Datos Generales", columnas_datos)
 
-        # --- Filtro por Eje (primer nivel) ---
-        ejes_disponibles = datos_ahora["Eje"].dropna().unique().tolist()
-        eje_sel = st.sidebar.selectbox("Filtrar por Eje", [""] + sorted(ejes_disponibles))
+        # --- Filtros escalonados ---
+        with st.sidebar:
+            st.markdown("---")
+            st.markdown("### 🔎 Filtrar proyectos")
 
-        # --- Filtro por Dependencia (segundo nivel) ---
-        if eje_sel:
-            deps_filtradas = datos_ahora[datos_ahora["Eje"] == eje_sel]["Dep Siglas"].dropna().unique().tolist()
-            dep_sel = st.sidebar.selectbox("Filtrar por Dependencia", [""] + sorted(deps_filtradas))
-        else:
-            dep_sel = None
 
-        # --- Filtro por Clave Q (tercer nivel) ---
-        if eje_sel and dep_sel:
-            claves_filtradas = datos_ahora[
-                (datos_ahora["Eje"] == eje_sel) &
-                (datos_ahora["Dep Siglas"] == dep_sel)
-            ]["Clave Q"].dropna().unique().tolist()
-            clave_q = st.sidebar.selectbox("Selecciona una Clave Q", [""] + sorted(claves_filtradas))
-        else:
-            clave_q = None
+            ejes_disponibles = datos_ahora["Eje"].dropna().unique().tolist()
+            eje_sel = st.selectbox("Eje", [""] + sorted(ejes_disponibles))
+
+            if eje_sel:
+                deps_filtradas = datos_ahora[datos_ahora["Eje"] == eje_sel]["Dep Siglas"].dropna().unique().tolist()
+                dep_sel = st.selectbox("Dependencia", [""] + sorted(deps_filtradas))
+            else:
+                dep_sel = None
+
+            if eje_sel and dep_sel:
+                subset = datos_ahora[
+                    (datos_ahora["Eje"] == eje_sel) & (datos_ahora["Dep Siglas"] == dep_sel)
+                ][["Clave Q", "Nombre del Proyecto (Ejercicio Actual)"]].dropna()
+
+                subset["display"] = subset["Clave Q"] + " - " + subset["Nombre del Proyecto (Ejercicio Actual)"]
+                opciones_q = subset.set_index("display")["Clave Q"].to_dict()
+
+                clave_q_display = st.selectbox("Clave Q", [""] + list(opciones_q.keys()))
+                clave_q = opciones_q.get(clave_q_display)
+            else:
+             clave_q = None
+
 
         # --- Control de flujo: si no hay Clave Q seleccionada, detener ejecución ---
         if not clave_q:
@@ -132,16 +143,115 @@ if archivo_antes and archivo_ahora:
         cumplimiento_ahora = cumplimiento_ahora.dropna(subset=["Clave de Meta"])
         cumplimiento_antes = cumplimiento_antes.dropna(subset=["Clave de Meta"])
 
+# ========== PESTAÑAS PRINCIPALES ==========
+
+    tabs = st.tabs([
+        "📄 Datos Generales",
+        "🎯 Metas",
+    ])
 
     ################################################ DATOS GENERALES #########################################
-    with st.expander("Datos Generales", expanded=False):    
-            st.subheader("Comparativo de Datos Generales")
+    with tabs[0]:  
+        st.subheader("📄 Datos Generales")
 
-            campos_texto = [
-                "Diagnóstico", "Objetivo General", "Descripción del Proyecto",
-                "Descripción del Avance Actual", "Alcance Anual"
-            ]
+        campos_texto = [
+            "Diagnóstico", "Objetivo General", "Descripción del Proyecto",
+            "Descripción del Avance Actual", "Alcance Anual"
+        ]
 
+        def resaltar_diferencias(texto_antes, texto_ahora):
+            matcher = difflib.SequenceMatcher(None, texto_antes, texto_ahora)
+            res_antes = ""
+            res_ahora = ""
+            for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+                if tag == "equal":
+                    res_antes += texto_antes[i1:i2]
+                    res_ahora += texto_ahora[j1:j2]
+                elif tag == "replace":
+                    res_antes += f"<del style='color:red'>{texto_antes[i1:i2]}</del>"
+                    res_ahora += f"<span style='background-color:lightgreen'>{texto_ahora[j1:j2]}</span>"
+                elif tag == "delete":
+                    res_antes += f"<del style='color:red'>{texto_antes[i1:i2]}</del>"
+                elif tag == "insert":
+                    res_ahora += f"<span style='background-color:lightgreen'>{texto_ahora[j1:j2]}</span>"
+            return res_antes, res_ahora
+
+        if clave_q == "Todos":
+            st.info("Selecciona una Clave Q específica en el panel lateral para ver los datos comparativos.")
+        else:
+            st.markdown(f"### Clave Q: {clave_q}")
+
+            fila_antes = datos_antes
+            fila_ahora = datos_ahora
+
+            if fila_antes.empty or fila_ahora.empty:
+                st.warning("No se encontró información para esta Clave Q.")
+            else:
+                for campo in campos_texto:
+                    valor_antes = str(fila_antes[campo].values[0])
+                    valor_ahora = str(fila_ahora[campo].values[0])
+
+                    st.markdown(f"**{campo}**")
+                    col1, col2 = st.columns(2)
+
+                    if valor_antes != valor_ahora:
+                        st.info("🔄 Modificado")
+                        antes_html, ahora_html = resaltar_diferencias(valor_antes, valor_ahora)
+                        with col1:
+                            st.markdown("Antes:")
+                            st.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{antes_html}</div>", unsafe_allow_html=True)
+                        with col2:
+                            st.markdown("Ahora:")
+                            st.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{ahora_html}</div>", unsafe_allow_html=True)
+                    else:
+                        st.success("✔ Sin cambios")
+                        with col1:
+                            st.markdown("Antes:")
+                            st.markdown(valor_antes)
+                        with col2:
+                            st.markdown("Ahora:")
+                            st.markdown(valor_ahora)
+
+        ############################## SECCIÓN DE METAS ############################################################
+
+    with tabs[1]:  
+        st.subheader("🎯 Metas")
+
+        # --------- Filtro de Clave de Meta (solo si hay datos y clave_q) ---------
+        if not metas_ahora.empty and clave_q is not None:
+            st.markdown("### Seleccionar Meta")
+
+            metas_disponibles = (
+                metas_ahora[metas_ahora["Clave Q"] == clave_q][["Clave de Meta", "Descripción de la Meta"]]
+                .dropna(subset=["Clave de Meta"])
+                .drop_duplicates()
+                .sort_values("Clave de Meta")
+            )
+
+            metas_disponibles["Etiqueta"] = metas_disponibles["Clave de Meta"] + " - " + metas_disponibles["Descripción de la Meta"]
+
+            clave_meta_filtro = st.selectbox(
+                "Selecciona una Clave de Meta",
+                [""] + metas_disponibles["Etiqueta"].tolist(),
+                key="filtro_meta"
+            )
+
+            clave_meta_filtro_valor = clave_meta_filtro.split(" - ")[0] if clave_meta_filtro else None
+
+        else:
+            clave_meta_filtro_valor = None
+
+        ############ Subpestañas específicas
+        subtabs = st.tabs([
+            "📋 Información de la Meta",
+            "📆 Cronograma",
+            "💰 Partidas",
+            "✅ Cumplimiento"
+        ])
+
+        with subtabs[0]:
+            st.write("📋 Información de la Meta")
+        
             def resaltar_diferencias(texto_antes, texto_ahora):
                 matcher = difflib.SequenceMatcher(None, texto_antes, texto_ahora)
                 res_antes = ""
@@ -159,184 +269,102 @@ if archivo_antes and archivo_ahora:
                         res_ahora += f"<span style='background-color:lightgreen'>{texto_ahora[j1:j2]}</span>"
                 return res_antes, res_ahora
 
-            if clave_q == "Todos":
-                st.info("Selecciona una Clave Q específica en el panel lateral para ver los datos comparativos.")
+
+            if metas_ahora.empty:
+                st.info("No hay datos disponibles para esta Clave Q.")
             else:
-                st.markdown(f"### Clave Q: {clave_q}")
+                campos_metas_texto = ["Descripción de la Meta", "Unidad de Medida"]
 
-                fila_antes = datos_antes
-                fila_ahora = datos_ahora
+                claves_meta_unicas = metas_ahora["Clave de Meta"].dropna().unique()
 
-                if fila_antes.empty or fila_ahora.empty:
-                    st.warning("No se encontró información para esta Clave Q.")
-                else:
-                    for campo in campos_texto:
-                        valor_antes = str(fila_antes[campo].values[0])
-                        valor_ahora = str(fila_ahora[campo].values[0])
+                for clave_meta in claves_meta_unicas:
+            
 
-                        st.markdown(f"**{campo}**")
-                        col1, col2 = st.columns(2)
+                    if clave_meta_filtro_valor and clave_meta != clave_meta_filtro_valor:
+                        continue  # 👉 Omitir si no coincide con filtro
 
-                        if valor_antes != valor_ahora:
-                            st.info("🔄 Modificado")
+                    st.markdown(f"#### Meta: {clave_meta}")
+
+                    df_ahora_meta = metas_ahora[metas_ahora["Clave de Meta"] == clave_meta]
+                    df_antes_meta = metas_antes[metas_antes["Clave de Meta"] == clave_meta]
+
+                    fila_ahora = df_ahora_meta.head(1)
+                    fila_antes = df_antes_meta.head(1)
+
+                    col1, col2 = st.columns(2)
+
+                    # Comparativos cualitativos
+                    for campo in campos_metas_texto:
+                        valor_ahora = str(fila_ahora[campo].values[0]) if not fila_ahora.empty else ""
+                        valor_antes = str(fila_antes[campo].values[0]) if not fila_antes.empty else ""
+
+                        if campo == "Descripción de la Meta":
                             antes_html, ahora_html = resaltar_diferencias(valor_antes, valor_ahora)
-                            with col1:
-                                st.markdown("Antes:")
-                                st.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{antes_html}</div>", unsafe_allow_html=True)
-                            with col2:
-                                st.markdown("Ahora:")
-                                st.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{ahora_html}</div>", unsafe_allow_html=True)
+
+                            col1.markdown(f"**{campo} (Antes)**")
+                            col1.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{antes_html}</div>", unsafe_allow_html=True)
+
+                            col2.markdown(f"**{campo} (Ahora)**")
+                            col2.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{ahora_html}</div>", unsafe_allow_html=True)
                         else:
-                            st.success("✔ Sin cambios")
-                            with col1:
-                                st.markdown("Antes:")
-                                st.markdown(valor_antes)
-                            with col2:
-                                st.markdown("Ahora:")
-                                st.markdown(valor_ahora)
+                            col1.markdown(f"**{campo} (Antes)**")
+                            col1.markdown(valor_antes)
+                            col2.markdown(f"**{campo} (Ahora)**")
+                            col2.markdown(valor_ahora)
 
+                    # ---------- Métricas generales ----------
+                    total_antes_cantidad = df_antes_meta["Cantidad Total"].sum()
+                    total_ahora_cantidad = df_ahora_meta["Cantidad Total"].sum()
+                    total_antes_monto = df_antes_meta["Monto Total"].sum()
+                    total_ahora_monto = df_ahora_meta["Monto Total"].sum()
 
+                    diferencia_cantidad = total_ahora_cantidad - total_antes_cantidad
+                    diferencia_monto = total_ahora_monto - total_antes_monto
 
+                    color_cantidad = "green" if diferencia_cantidad > 0 else "red" if diferencia_cantidad < 0 else "black"
+                    color_monto = "green" if diferencia_monto > 0 else "red" if diferencia_monto < 0 else "black"
 
-    # --------- Filtro de Clave de Meta (solo si hay datos y clave_q) ---------
-    if not metas_ahora.empty and clave_q is not None:
-        st.markdown("### Seleccionar Meta")
+                    col_total1, col_total2 = st.columns(2)
+                    col_total1.metric("Cantidad Total (Ahora)", f"{total_ahora_cantidad:,.2f}")
+                    col_total1.markdown(f"<span style='color:{color_cantidad}'>Diferencia: {diferencia_cantidad:,.2f}</span>", unsafe_allow_html=True)
 
-        metas_disponibles = (
-            metas_ahora[metas_ahora["Clave Q"] == clave_q][["Clave de Meta", "Descripción de la Meta"]]
-            .dropna(subset=["Clave de Meta"])
-            .drop_duplicates()
-            .sort_values("Clave de Meta")
-        )
+                    col_total2.metric("Monto Total (Ahora)", f"${total_ahora_monto:,.2f}")
+                    col_total2.markdown(f"<span style='color:{color_monto}'>Diferencia: ${diferencia_monto:,.2f}</span>", unsafe_allow_html=True)
 
-        metas_disponibles["Etiqueta"] = metas_disponibles["Clave de Meta"] + " - " + metas_disponibles["Descripción de la Meta"]
+                    # ---------- Comparativo por Municipio ----------
+                    st.markdown("##### Comparativo por Municipio")
 
-        clave_meta_filtro = st.selectbox(
-            "Selecciona una Clave de Meta",
-            [""] + metas_disponibles["Etiqueta"].tolist(),
-            key="filtro_meta"
-        )
+                    resumen_antes = df_antes_meta.groupby("Municipio")[["Cantidad Total", "Monto Total"]].sum().reset_index()
+                    resumen_ahora = df_ahora_meta.groupby("Municipio")[["Cantidad Total", "Monto Total"]].sum().reset_index()
 
-        clave_meta_filtro_valor = clave_meta_filtro.split(" - ")[0] if clave_meta_filtro else None
+                    resumen_antes = resumen_antes.rename(columns={
+                        "Cantidad Total": "Cantidad Total (Antes)",
+                        "Monto Total": "Monto Total (Antes)"
+                    })
+                    resumen_ahora = resumen_ahora.rename(columns={
+                        "Cantidad Total": "Cantidad Total (Ahora)",
+                        "Monto Total": "Monto Total (Ahora)"
+                    })
 
-    else:
-        clave_meta_filtro_valor = None
+                    resumen_comparativo = pd.merge(resumen_antes, resumen_ahora, on="Municipio", how="outer").fillna(0)
+                    resumen_comparativo = resumen_comparativo[[
+                        "Municipio",
+                        "Cantidad Total (Antes)", "Cantidad Total (Ahora)",
+                        "Monto Total (Antes)", "Monto Total (Ahora)"
+                    ]]
 
+                    for col in ["Monto Total (Antes)", "Monto Total (Ahora)"]:
+                        resumen_comparativo[col] = resumen_comparativo[col].apply(lambda x: f"${x:,.2f}")
 
-    ############################## SECCIÓN DE METAS ############################################################
-    def resaltar_diferencias(texto_antes, texto_ahora):
-        matcher = difflib.SequenceMatcher(None, texto_antes, texto_ahora)
-        res_antes = ""
-        res_ahora = ""
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == "equal":
-                res_antes += texto_antes[i1:i2]
-                res_ahora += texto_ahora[j1:j2]
-            elif tag == "replace":
-                res_antes += f"<del style='color:red'>{texto_antes[i1:i2]}</del>"
-                res_ahora += f"<span style='background-color:lightgreen'>{texto_ahora[j1:j2]}</span>"
-            elif tag == "delete":
-                res_antes += f"<del style='color:red'>{texto_antes[i1:i2]}</del>"
-            elif tag == "insert":
-                res_ahora += f"<span style='background-color:lightgreen'>{texto_ahora[j1:j2]}</span>"
-        return res_antes, res_ahora
-
-
-    with st.expander("Sección de Metas", expanded=True):
-        if metas_ahora.empty:
-            st.info("No hay datos disponibles para esta Clave Q.")
-        else:
-            campos_metas_texto = ["Descripción de la Meta", "Unidad de Medida"]
-
-            claves_meta_unicas = metas_ahora["Clave de Meta"].dropna().unique()
-
-            for clave_meta in claves_meta_unicas:
-        
-
-                if clave_meta_filtro_valor and clave_meta != clave_meta_filtro_valor:
-                    continue  # 👉 Omitir si no coincide con filtro
-
-                st.markdown(f"#### Meta: {clave_meta}")
-
-                df_ahora_meta = metas_ahora[metas_ahora["Clave de Meta"] == clave_meta]
-                df_antes_meta = metas_antes[metas_antes["Clave de Meta"] == clave_meta]
-
-                fila_ahora = df_ahora_meta.head(1)
-                fila_antes = df_antes_meta.head(1)
-
-                col1, col2 = st.columns(2)
-
-                # Comparativos cualitativos
-                for campo in campos_metas_texto:
-                    valor_ahora = str(fila_ahora[campo].values[0]) if not fila_ahora.empty else ""
-                    valor_antes = str(fila_antes[campo].values[0]) if not fila_antes.empty else ""
-
-                    if campo == "Descripción de la Meta":
-                        antes_html, ahora_html = resaltar_diferencias(valor_antes, valor_ahora)
-
-                        col1.markdown(f"**{campo} (Antes)**")
-                        col1.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{antes_html}</div>", unsafe_allow_html=True)
-
-                        col2.markdown(f"**{campo} (Ahora)**")
-                        col2.markdown(f"<div style='border:1px solid #ccc;padding:8px'>{ahora_html}</div>", unsafe_allow_html=True)
-                    else:
-                        col1.markdown(f"**{campo} (Antes)**")
-                        col1.markdown(valor_antes)
-                        col2.markdown(f"**{campo} (Ahora)**")
-                        col2.markdown(valor_ahora)
-
-                # ---------- Métricas generales ----------
-                total_antes_cantidad = df_antes_meta["Cantidad Total"].sum()
-                total_ahora_cantidad = df_ahora_meta["Cantidad Total"].sum()
-                total_antes_monto = df_antes_meta["Monto Total"].sum()
-                total_ahora_monto = df_ahora_meta["Monto Total"].sum()
-
-                diferencia_cantidad = total_ahora_cantidad - total_antes_cantidad
-                diferencia_monto = total_ahora_monto - total_antes_monto
-
-                color_cantidad = "green" if diferencia_cantidad > 0 else "red" if diferencia_cantidad < 0 else "black"
-                color_monto = "green" if diferencia_monto > 0 else "red" if diferencia_monto < 0 else "black"
-
-                col_total1, col_total2 = st.columns(2)
-                col_total1.metric("Cantidad Total (Ahora)", f"{total_ahora_cantidad:,.2f}")
-                col_total1.markdown(f"<span style='color:{color_cantidad}'>Diferencia: {diferencia_cantidad:,.2f}</span>", unsafe_allow_html=True)
-
-                col_total2.metric("Monto Total (Ahora)", f"${total_ahora_monto:,.2f}")
-                col_total2.markdown(f"<span style='color:{color_monto}'>Diferencia: ${diferencia_monto:,.2f}</span>", unsafe_allow_html=True)
-
-                # ---------- Comparativo por Municipio ----------
-                st.markdown("##### Comparativo por Municipio")
-
-                resumen_antes = df_antes_meta.groupby("Municipio")[["Cantidad Total", "Monto Total"]].sum().reset_index()
-                resumen_ahora = df_ahora_meta.groupby("Municipio")[["Cantidad Total", "Monto Total"]].sum().reset_index()
-
-                resumen_antes = resumen_antes.rename(columns={
-                    "Cantidad Total": "Cantidad Total (Antes)",
-                    "Monto Total": "Monto Total (Antes)"
-                })
-                resumen_ahora = resumen_ahora.rename(columns={
-                    "Cantidad Total": "Cantidad Total (Ahora)",
-                    "Monto Total": "Monto Total (Ahora)"
-                })
-
-                resumen_comparativo = pd.merge(resumen_antes, resumen_ahora, on="Municipio", how="outer").fillna(0)
-                resumen_comparativo = resumen_comparativo[[
-                    "Municipio",
-                    "Cantidad Total (Antes)", "Cantidad Total (Ahora)",
-                    "Monto Total (Antes)", "Monto Total (Ahora)"
-                ]]
-
-                for col in ["Monto Total (Antes)", "Monto Total (Ahora)"]:
-                    resumen_comparativo[col] = resumen_comparativo[col].apply(lambda x: f"${x:,.2f}")
-
-                st.dataframe(resumen_comparativo, use_container_width=True)
+                    st.dataframe(resumen_comparativo, use_container_width=True)
 
 
 ############################## SECCIÓN DE CRONOGRAMA ############################################################
-    if clave_meta_filtro_valor:
-        with st.expander("Sección de Cronograma"):
-            st.subheader("Cronograma")
 
+    if clave_meta_filtro_valor:
+        with subtabs[1]:
+            st.write("📆 Cronograma")
+       
             clave_meta_seleccionada = clave_meta_filtro_valor
 
             df_crono_ahora_qm = metas_crono_ahora[metas_crono_ahora["Clave de Meta"] == clave_meta_seleccionada]
@@ -411,9 +439,10 @@ if archivo_antes and archivo_ahora:
 
 
         ############################## SECCIÓN DE METAS-PARTIDAS ############################################################
+
     if clave_meta_filtro_valor:
-        with st.expander("Sección de Metas-Partidas"):
-            st.subheader("Partidas por Meta")
+        with subtabs[2]:
+            st.write("💰 Partidas")
 
             clave_meta = clave_meta_filtro_valor
 
@@ -475,8 +504,9 @@ if archivo_antes and archivo_ahora:
 
  ############################## SECCIÓN DE METAS - CUMPLIMIENTO ############################################################
     if clave_meta_filtro_valor:
-        with st.expander("Sección de Cumplimiento por Meta", expanded=False):
-            st.subheader("Cumplimiento Programado (Mensual)")
+
+        with subtabs[3]:
+            st.write("✅ Cumplimiento Programado")
 
             clave_meta = clave_meta_filtro_valor
 
@@ -544,4 +574,3 @@ else:
 
     > Si no ves nada aún, asegúrate de haber subido ambos archivos y de haber seleccionado una Clave Q válida.
     """)
-
