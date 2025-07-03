@@ -199,28 +199,28 @@ if archivo_antes and archivo_ahora:
 
 
     # --------- Filtro de Clave de Meta (solo si hay datos y clave_q) ---------
-            if not metas_ahora.empty and clave_q is not None:
-                st.markdown("### Seleccionar Meta")
+    if not metas_ahora.empty and clave_q is not None:
+        st.markdown("### Seleccionar Meta")
 
-                metas_disponibles = (
-                    metas_ahora[metas_ahora["Clave Q"] == clave_q][["Clave de Meta", "Descripción de la Meta"]]
-                    .dropna(subset=["Clave de Meta"])
-                    .drop_duplicates()
-                    .sort_values("Clave de Meta")
-                )
+        metas_disponibles = (
+            metas_ahora[metas_ahora["Clave Q"] == clave_q][["Clave de Meta", "Descripción de la Meta"]]
+            .dropna(subset=["Clave de Meta"])
+            .drop_duplicates()
+            .sort_values("Clave de Meta")
+        )
 
-                metas_disponibles["Etiqueta"] = metas_disponibles["Clave de Meta"] + " - " + metas_disponibles["Descripción de la Meta"]
+        metas_disponibles["Etiqueta"] = metas_disponibles["Clave de Meta"] + " - " + metas_disponibles["Descripción de la Meta"]
 
-                clave_meta_filtro = st.selectbox(
-                    "Selecciona una Clave de Meta",
-                    [""] + metas_disponibles["Etiqueta"].tolist(),
-                    key="filtro_meta"
-                )
+        clave_meta_filtro = st.selectbox(
+            "Selecciona una Clave de Meta",
+            [""] + metas_disponibles["Etiqueta"].tolist(),
+            key="filtro_meta"
+        )
 
-                clave_meta_filtro_valor = clave_meta_filtro.split(" - ")[0] if clave_meta_filtro else None
+        clave_meta_filtro_valor = clave_meta_filtro.split(" - ")[0] if clave_meta_filtro else None
 
-            else:
-                clave_meta_filtro_valor = None
+    else:
+        clave_meta_filtro_valor = None
 
 
     ############################## SECCIÓN DE METAS ############################################################
