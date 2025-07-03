@@ -333,197 +333,199 @@ if archivo_antes and archivo_ahora:
 
 
 ############################## SECCIÓN DE CRONOGRAMA ############################################################
-        if clave_meta_filtro_valor:
-            with st.expander("Sección de Cronograma"):
-                st.subheader("Cronograma")
+    if clave_meta_filtro_valor:
+        with st.expander("Sección de Cronograma"):
+            st.subheader("Cronograma")
 
-                clave_meta_seleccionada = clave_meta_filtro_valor
+            clave_meta_seleccionada = clave_meta_filtro_valor
 
-                df_crono_ahora_qm = metas_crono_ahora[metas_crono_ahora["Clave de Meta"] == clave_meta_seleccionada]
-                df_crono_antes_qm = metas_crono_antes[metas_crono_antes["Clave de Meta"] == clave_meta_seleccionada]
+            df_crono_ahora_qm = metas_crono_ahora[metas_crono_ahora["Clave de Meta"] == clave_meta_seleccionada]
+            df_crono_antes_qm = metas_crono_antes[metas_crono_antes["Clave de Meta"] == clave_meta_seleccionada]
 
-                if df_crono_ahora_qm.empty and df_crono_antes_qm.empty:
-                    st.info("No se encontraron actividades o hitos para esta meta en ninguna de las versiones.")
-                else:
-                    # Marcar versión
-                    df_crono_ahora_qm = df_crono_ahora_qm.copy()
-                    df_crono_ahora_qm["Versión"] = "Ahora"
+            if df_crono_ahora_qm.empty and df_crono_antes_qm.empty:
+                st.info("No se encontraron actividades o hitos para esta meta en ninguna de las versiones.")
+            else:
+                # Marcar versión
+                df_crono_ahora_qm = df_crono_ahora_qm.copy()
+                df_crono_ahora_qm["Versión"] = "Ahora"
 
-                    df_crono_antes_qm = df_crono_antes_qm.copy()
-                    df_crono_antes_qm["Versión"] = "Antes"
+                df_crono_antes_qm = df_crono_antes_qm.copy()
+                df_crono_antes_qm["Versión"] = "Antes"
 
-                    df_crono_comparado = pd.concat([df_crono_antes_qm, df_crono_ahora_qm], ignore_index=True)
+                df_crono_comparado = pd.concat([df_crono_antes_qm, df_crono_ahora_qm], ignore_index=True)
 
-                    # Convertir clave numérica
-                    df_crono_comparado["Clave Num"] = pd.to_numeric(
-                        df_crono_comparado["Clave de Actividad /Hito"], errors="coerce"
-                    )
+                # Convertir clave numérica
+                df_crono_comparado["Clave Num"] = pd.to_numeric(
+                    df_crono_comparado["Clave de Actividad /Hito"], errors="coerce"
+                )
 
-                    df_crono_comparado["Actividad"] = (
-                        df_crono_comparado["Clave de Actividad /Hito"].astype(str) +
-                        " - " + df_crono_comparado["Descripción"].astype(str) +
-                        " (" + df_crono_comparado["Versión"] + ")"
-                    )
+                df_crono_comparado["Actividad"] = (
+                    df_crono_comparado["Clave de Actividad /Hito"].astype(str) +
+                    " - " + df_crono_comparado["Descripción"].astype(str) +
+                    " (" + df_crono_comparado["Versión"] + ")"
+                )
 
-                    orden_y = df_crono_comparado.sort_values("Clave Num")["Actividad"].tolist()
+                orden_y = df_crono_comparado.sort_values("Clave Num")["Actividad"].tolist()
 
-                    # Ajustar fechas iguales (inicio = término)
-                    mismo_dia = (
-                        df_crono_comparado["Fecha de Inicio"] == df_crono_comparado["Fecha de Termino"]
-                    )
-                    df_crono_comparado.loc[mismo_dia, "Fecha de Termino"] += pd.Timedelta(days=1)
+                # Ajustar fechas iguales (inicio = término)
+                mismo_dia = (
+                    df_crono_comparado["Fecha de Inicio"] == df_crono_comparado["Fecha de Termino"]
+                )
+                df_crono_comparado.loc[mismo_dia, "Fecha de Termino"] += pd.Timedelta(days=1)
 
-                    # Gantt
-                    fig = px.timeline(
-                        df_crono_comparado,
-                        x_start="Fecha de Inicio",
-                        x_end="Fecha de Termino",
-                        y="Actividad",
-                        color="Versión",
-                        color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"},
-                        title=f"Cronograma de Actividades / Hitos - Meta {clave_meta_seleccionada}"
-                    )
+                # Gantt
+                fig = px.timeline(
+                    df_crono_comparado,
+                    x_start="Fecha de Inicio",
+                    x_end="Fecha de Termino",
+                    y="Actividad",
+                    color="Versión",
+                    color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"},
+                    title=f"Cronograma de Actividades / Hitos - Meta {clave_meta_seleccionada}"
+                )
 
-                    fig.update_yaxes(categoryorder="array", categoryarray=orden_y)
-                    fig.update_yaxes(autorange="reversed")
-                    fig.update_layout(height=600)
+                fig.update_yaxes(categoryorder="array", categoryarray=orden_y)
+                fig.update_yaxes(autorange="reversed")
+                fig.update_layout(height=600)
 
-                    st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True)
 
-                    # Tabla de detalle (solo versión actual)
-                    st.markdown("##### Detalle de Actividades / Hitos (Versión Actual)")
+                # Tabla de detalle (solo versión actual)
+                st.markdown("##### Detalle de Actividades / Hitos (Versión Actual)")
 
-                    columnas_tabla = [
-                        "Clave de Actividad /Hito", "Fase Actividad / Hito", "Descripción",
-                        "Fecha de Inicio", "Fecha de Termino", "Monto Actividad / Hito"
-                    ]
+                columnas_tabla = [
+                    "Clave de Actividad /Hito", "Fase Actividad / Hito", "Descripción",
+                    "Fecha de Inicio", "Fecha de Termino", "Monto Actividad / Hito"
+                ]
 
-                    tabla_actual = df_crono_ahora_qm[columnas_tabla].sort_values("Clave de Actividad /Hito").copy()
+                tabla_actual = df_crono_ahora_qm[columnas_tabla].sort_values("Clave de Actividad /Hito").copy()
 
-                    tabla_actual["Monto Actividad / Hito"] = tabla_actual["Monto Actividad / Hito"].apply(
-                        lambda x: f"${x:,.2f}" if pd.notna(x) else ""
-                    )
-                    tabla_actual["Fecha de Inicio"] = tabla_actual["Fecha de Inicio"].dt.strftime("%d/%m/%Y")
-                    tabla_actual["Fecha de Termino"] = tabla_actual["Fecha de Termino"].dt.strftime("%d/%m/%Y")
+                tabla_actual["Monto Actividad / Hito"] = tabla_actual["Monto Actividad / Hito"].apply(
+                    lambda x: f"${x:,.2f}" if pd.notna(x) else ""
+                )
+                tabla_actual["Fecha de Inicio"] = tabla_actual["Fecha de Inicio"].dt.strftime("%d/%m/%Y")
+                tabla_actual["Fecha de Termino"] = tabla_actual["Fecha de Termino"].dt.strftime("%d/%m/%Y")
 
-                    st.dataframe(tabla_actual, use_container_width=True)
+                st.dataframe(tabla_actual, use_container_width=True)
+    else: "Selecciona una Clave de Meta para ver las secciones de Cronograma, Partidas y Cumplimiento"           
 
 
         ############################## SECCIÓN DE METAS-PARTIDAS ############################################################
-        if clave_meta_filtro_valor:
-            with st.expander("Sección de Metas-Partidas"):
-                st.subheader("Partidas por Meta")
+    if clave_meta_filtro_valor:
+        with st.expander("Sección de Metas-Partidas"):
+            st.subheader("Partidas por Meta")
 
-                clave_meta = clave_meta_filtro_valor
+            clave_meta = clave_meta_filtro_valor
 
-                df_partidas_ahora_qm = metas_partidas_ahora[metas_partidas_ahora["Clave de Meta"] == clave_meta]
-                df_partidas_antes_qm = metas_partidas_antes[metas_partidas_antes["Clave de Meta"] == clave_meta]
+            df_partidas_ahora_qm = metas_partidas_ahora[metas_partidas_ahora["Clave de Meta"] == clave_meta]
+            df_partidas_antes_qm = metas_partidas_antes[metas_partidas_antes["Clave de Meta"] == clave_meta]
 
-                # --- Comparativo de montos anuales por partida ---
-                resumen_ahora = (
-                    df_partidas_ahora_qm.groupby("Partida")["Monto Anual"].sum().reset_index()
-                    .rename(columns={"Monto Anual": "Monto Anual (Ahora)"})
-                )
-                resumen_antes = (
-                    df_partidas_antes_qm.groupby("Partida")["Monto Anual"].sum().reset_index()
-                    .rename(columns={"Monto Anual": "Monto Anual (Antes)"})
-                )
+            # --- Comparativo de montos anuales por partida ---
+            resumen_ahora = (
+                df_partidas_ahora_qm.groupby("Partida")["Monto Anual"].sum().reset_index()
+                .rename(columns={"Monto Anual": "Monto Anual (Ahora)"})
+            )
+            resumen_antes = (
+                df_partidas_antes_qm.groupby("Partida")["Monto Anual"].sum().reset_index()
+                .rename(columns={"Monto Anual": "Monto Anual (Antes)"})
+            )
 
-                df_comparativo = pd.merge(resumen_antes, resumen_ahora, on="Partida", how="outer").fillna(0)
-                df_comparativo["Diferencia"] = (
-                    df_comparativo["Monto Anual (Ahora)"] - df_comparativo["Monto Anual (Antes)"]
-                )
+            df_comparativo = pd.merge(resumen_antes, resumen_ahora, on="Partida", how="outer").fillna(0)
+            df_comparativo["Diferencia"] = (
+                df_comparativo["Monto Anual (Ahora)"] - df_comparativo["Monto Anual (Antes)"]
+            )
 
-                # Formato de moneda
-                for col in ["Monto Anual (Antes)", "Monto Anual (Ahora)", "Diferencia"]:
-                    df_comparativo[col] = df_comparativo[col].apply(lambda x: f"${x:,.2f}")
+            # Formato de moneda
+            for col in ["Monto Anual (Antes)", "Monto Anual (Ahora)", "Diferencia"]:
+                df_comparativo[col] = df_comparativo[col].apply(lambda x: f"${x:,.2f}")
 
-                st.markdown("##### Comparativo de Montos por Partida")
-                st.dataframe(df_comparativo, use_container_width=True)
+            st.markdown("##### Comparativo de Montos por Partida")
+            st.dataframe(df_comparativo, use_container_width=True)
 
-                # --- Distribución mensual por meta ---
-                meses = [
-                    "Monto Enero", "Monto Febrero", "Monto Marzo", "Monto Abril", "Monto Mayo",
-                    "Monto Junio", "Monto Julio", "Monto Agosto", "Monto Septiembre",
-                    "Monto Octubre", "Monto Noviembre", "Monto Diciembre"
-                ]
+            # --- Distribución mensual por meta ---
+            meses = [
+                "Monto Enero", "Monto Febrero", "Monto Marzo", "Monto Abril", "Monto Mayo",
+                "Monto Junio", "Monto Julio", "Monto Agosto", "Monto Septiembre",
+                "Monto Octubre", "Monto Noviembre", "Monto Diciembre"
+            ]
 
-                # Sumar por mes
-                sum_mensual_ahora = df_partidas_ahora_qm[meses].sum()
-                sum_mensual_antes = df_partidas_antes_qm[meses].sum()
+            # Sumar por mes
+            sum_mensual_ahora = df_partidas_ahora_qm[meses].sum()
+            sum_mensual_antes = df_partidas_antes_qm[meses].sum()
 
-                df_mensual = pd.DataFrame({
-                    "Mes": [mes.replace("Monto ", "") for mes in meses],
-                    "Antes": sum_mensual_antes.values,
-                    "Ahora": sum_mensual_ahora.values
-                })
+            df_mensual = pd.DataFrame({
+                "Mes": [mes.replace("Monto ", "") for mes in meses],
+                "Antes": sum_mensual_antes.values,
+                "Ahora": sum_mensual_ahora.values
+            })
 
-                fig = px.bar(
-                    df_mensual,
-                    x="Mes",
-                    y=["Antes", "Ahora"],
-                    barmode="group",
-                    title=f"Distribución Mensual de Montos - Meta {clave_meta}",
-                    labels={"value": "Monto", "variable": "Versión"},
-                    color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"}
-                )
+            fig = px.bar(
+                df_mensual,
+                x="Mes",
+                y=["Antes", "Ahora"],
+                barmode="group",
+                title=f"Distribución Mensual de Montos - Meta {clave_meta}",
+                labels={"value": "Monto", "variable": "Versión"},
+                color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"}
+            )
 
-                fig.update_layout(height=500)
-                st.plotly_chart(fig, use_container_width=True)
+            fig.update_layout(height=500)
+            st.plotly_chart(fig, use_container_width=True)
 
 
  ############################## SECCIÓN DE METAS - CUMPLIMIENTO ############################################################
-    with st.expander("Sección de Cumplimiento por Meta", expanded=False):
-        st.subheader("Cumplimiento Programado (Mensual)")
+    if clave_meta_filtro_valor:
+        with st.expander("Sección de Cumplimiento por Meta", expanded=False):
+            st.subheader("Cumplimiento Programado (Mensual)")
 
-        clave_meta = clave_meta_filtro_valor
+            clave_meta = clave_meta_filtro_valor
 
-        df_cump_ahora = cumplimiento_ahora[ cumplimiento_ahora["Clave de Meta"] == clave_meta ]
-        df_cump_antes = cumplimiento_antes[ cumplimiento_antes["Clave de Meta"] == clave_meta ]
+            df_cump_ahora = cumplimiento_ahora[ cumplimiento_ahora["Clave de Meta"] == clave_meta ]
+            df_cump_antes = cumplimiento_antes[ cumplimiento_antes["Clave de Meta"] == clave_meta ]
 
-        # Obtener cantidad programada
-        cantidad_ahora = df_cump_ahora["Cantidad"].values[0] if not df_cump_ahora.empty else None
-        cantidad_antes = df_cump_antes["Cantidad"].values[0] if not df_cump_antes.empty else None
+            # Obtener cantidad programada
+            cantidad_ahora = df_cump_ahora["Cantidad"].values[0] if not df_cump_ahora.empty else None
+            cantidad_antes = df_cump_antes["Cantidad"].values[0] if not df_cump_antes.empty else None
 
-        # Mostrar métricas
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Cantidad Programada (Ahora)", f"{cantidad_ahora:.2f}" if cantidad_ahora is not None else "—")
-        with col2:
-            st.metric("Cantidad Programada (Antes)", f"{cantidad_antes:.2f}" if cantidad_antes is not None else "—")
+            # Mostrar métricas
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Cantidad Programada (Ahora)", f"{cantidad_ahora:.2f}" if cantidad_ahora is not None else "—")
+            with col2:
+                st.metric("Cantidad Programada (Antes)", f"{cantidad_antes:.2f}" if cantidad_antes is not None else "—")
 
-        # Gráfico de cumplimiento mensual
-        meses = [
-            "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-            "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-        ]
-        columnas_mensuales = [f"Cumplimiento {mes}" for mes in meses]
+            # Gráfico de cumplimiento mensual
+            meses = [
+                "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+            ]
+            columnas_mensuales = [f"Cumplimiento {mes}" for mes in meses]
 
-        valores_ahora = (
-            df_cump_ahora.iloc[0][columnas_mensuales].fillna(0).values if not df_cump_ahora.empty else [0] * 12
-        )
-        valores_antes = (
-            df_cump_antes.iloc[0][columnas_mensuales].fillna(0).values if not df_cump_antes.empty else [0] * 12
-        )
+            valores_ahora = (
+                df_cump_ahora.iloc[0][columnas_mensuales].fillna(0).values if not df_cump_ahora.empty else [0] * 12
+            )
+            valores_antes = (
+                df_cump_antes.iloc[0][columnas_mensuales].fillna(0).values if not df_cump_antes.empty else [0] * 12
+            )
 
-        df_cumplimiento = pd.DataFrame({
-            "Mes": meses * 2,
-            "Valor": list(valores_antes) + list(valores_ahora),
-            "Versión": ["Antes"] * 12 + ["Ahora"] * 12
-        })
+            df_cumplimiento = pd.DataFrame({
+                "Mes": meses * 2,
+                "Valor": list(valores_antes) + list(valores_ahora),
+                "Versión": ["Antes"] * 12 + ["Ahora"] * 12
+            })
 
-        fig_cump = px.bar(
-            df_cumplimiento,
-            x="Mes",
-            y="Valor",
-            color="Versión",
-            barmode="group",
-            color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"},
-            title=f"Cumplimiento Programado por Mes - Meta {clave_meta}"
-        )
-        fig_cump.update_layout(xaxis_tickangle=-45, height=400)
+            fig_cump = px.bar(
+                df_cumplimiento,
+                x="Mes",
+                y="Valor",
+                color="Versión",
+                barmode="group",
+                color_discrete_map={"Antes": "steelblue", "Ahora": "seagreen"},
+                title=f"Cumplimiento Programado por Mes - Meta {clave_meta}"
+            )
+            fig_cump.update_layout(xaxis_tickangle=-45, height=400)
 
-        st.plotly_chart(fig_cump, use_container_width=True)
+            st.plotly_chart(fig_cump, use_container_width=True)
 
 
 
